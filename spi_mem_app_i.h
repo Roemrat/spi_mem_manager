@@ -35,6 +35,7 @@ typedef enum {
     SPIMemModeErase,
     SPIMemModeDelete,
     SPIMemModeProtect,
+    SPIMemModeTama,
     SPIMemModeUnknown
 } SPIMemMode;
 

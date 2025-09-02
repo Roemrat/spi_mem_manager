@@ -32,7 +32,7 @@ static void spi_mem_scene_storage_error_set_previous_scene(SPIMemApp* app) {
     uint32_t scene = SPIMemSceneChipDetect;
     if(app->mode == SPIMemModeRead) scene = SPIMemSceneStart;
     if(app->mode == SPIMemModeErase) scene = SPIMemSceneStart;
-    if(app->mode == SPIMemModeProtect) scene = SPIMemSceneStart;
+    if(app->mode == SPIMemModeProtect || app->mode == SPIMemModeTama) scene = SPIMemSceneStart;
     if(app->mode == SPIMemModeDelete) scene = SPIMemSceneStart;
     scene_manager_search_and_switch_to_previous_scene(app->scene_manager, scene);
 }
