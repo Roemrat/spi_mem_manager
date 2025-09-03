@@ -34,7 +34,7 @@ static void spi_mem_scene_chip_detect_draw_next_button(SPIMemApp* app) {
     if(app->mode == SPIMemModeWrite) furi_string_printf(str, "%s", "Write");
     if(app->mode == SPIMemModeErase) furi_string_printf(str, "%s", "Erase");
     if(app->mode == SPIMemModeProtect) furi_string_printf(str, "%s", "Protect");
-    if(app->mode == SPIMemModeTama) furi_string_printf(str, "%s", "Tama");
+    if(app->mode == SPIMemModeTama) furi_string_printf(str, "%s", "Next");
     if(app->mode == SPIMemModeCompare) furi_string_printf(str, "%s", "Check");
     widget_add_button_element(
         app->widget,

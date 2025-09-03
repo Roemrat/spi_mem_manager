@@ -1,6 +1,7 @@
 #include "spi_mem_worker_i.h"
 #include "spi_mem_chip.h"
 #include "spi_mem_tools.h"
+#include "spi_mem_protection.h"
 #include "../../spi_mem_files.h"
 
 static void spi_mem_worker_chip_detect_process(SPIMemWorker* worker);
@@ -204,6 +205,9 @@ static void spi_mem_worker_write_process(SPIMemWorker* worker) {
         spi_mem_worker_modes_get_total_size(worker); // need to be executed before opening file
     do {
         if(!spi_mem_file_open(worker->cb_ctx)) break;
+        if(!spi_mem_worker_await_chip_busy(worker)) break;
+        if(!spi_mem_protection_unlock(worker->chip_info)) break;
+        if(!spi_mem_tools_erase_chip(worker->chip_info)) break;
         if(!spi_mem_worker_await_chip_busy(worker)) break;
         if(!spi_mem_worker_write(worker, total_size, &event)) break;
         if(!spi_mem_worker_await_chip_busy(worker)) break;

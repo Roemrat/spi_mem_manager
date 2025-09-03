@@ -32,12 +32,55 @@ void spi_mem_scene_tama_on_enter(void* context) {
         app->widget, 64, 9, AlignCenter, AlignBottom, FontPrimary, "Tama Reset");
     widget_add_icon_element(app->widget, 5, 15, &I_Dip8_32x36);
     
-    furi_string_printf(str, "Vendor id: 0x%02X", spi_mem_chip_get_vendor_id(app->chip_info));
-    widget_add_string_multiline_element(
-        app->widget, 40, 20, AlignLeft, AlignBottom, FontSecondary, furi_string_get_cstr(str));
-    furi_string_printf(str, "Capacity id: 0x%02X", spi_mem_chip_get_capacity_id(app->chip_info));
-    widget_add_string_multiline_element(
-        app->widget, 40, 34, AlignLeft, AlignBottom, FontSecondary, furi_string_get_cstr(str));
+    // Read 1 byte at address 0x32 and display mapped label
+    {
+        const uint32_t address = 0x000032;
+        uint8_t value = 0;
+        bool read_ok = false;
+        furi_hal_spi_acquire(&furi_hal_spi_bus_handle_external);
+        do {
+            uint8_t cmd = (uint8_t)SPIMemChipCMDReadData;
+            uint8_t addr_bytes[3];
+            addr_bytes[0] = (address >> 16) & 0xFF;
+            addr_bytes[1] = (address >> 8) & 0xFF;
+            addr_bytes[2] = address & 0xFF;
+            furi_hal_gpio_write(&gpio_ext_pa4, false);
+            if(!furi_hal_spi_bus_tx(&furi_hal_spi_bus_handle_external, &cmd, 1, SPI_MEM_SPI_TIMEOUT)) break;
+            if(!furi_hal_spi_bus_tx(&furi_hal_spi_bus_handle_external, addr_bytes, 3, SPI_MEM_SPI_TIMEOUT)) break;
+            if(!furi_hal_spi_bus_rx(&furi_hal_spi_bus_handle_external, &value, 1, SPI_MEM_SPI_TIMEOUT)) break;
+            read_ok = true;
+        } while(0);
+        furi_hal_gpio_write(&gpio_ext_pa4, true);
+        furi_hal_spi_release(&furi_hal_spi_bus_handle_external);
+
+        static const char* kThemes[] = {
+            "",
+            "",
+            "1996Friends",
+            "Rainbow",
+            "Sweets",
+            "Nizoo",
+            "Cosmetic",
+            "Gourmet",
+            "Pastel",
+            "Melody",
+            "Sanrio",
+            "Marine",
+            "PuiPuiMolcar",
+            "Magical",
+            "OnePiece",
+            "Anniversary",
+            "Kei-Tama",
+            "En-Tam",
+            "Pixar",
+        };
+        const size_t themes_count = sizeof(kThemes) / sizeof(kThemes[0]);
+        const char* label = "N/A";
+        if(read_ok && value < themes_count) label = kThemes[value];
+        furi_string_printf(str, "%d  %s", value,label);
+        widget_add_string_multiline_element(
+            app->widget, 44, 30, AlignLeft, AlignBottom, FontSecondary, furi_string_get_cstr(str));
+    }
     
     widget_add_button_element(
         app->widget,
@@ -48,17 +91,10 @@ void spi_mem_scene_tama_on_enter(void* context) {
     widget_add_button_element(
         app->widget,
         GuiButtonTypeRight,
-        "Write",
+        "Reset",
         spi_mem_scene_tama_widget_callback,
         app);
         
-    widget_add_button_element(
-        app->widget,
-        GuiButtonTypeCenter,
-        "Read",
-        spi_mem_scene_tama_widget_callback,
-        app);
-
     view_dispatcher_switch_to_view(app->view_dispatcher, SPIMemViewWidget);
 }
 
@@ -73,45 +109,13 @@ bool spi_mem_scene_tama_on_event(void* context, SceneManagerEvent event) {
         success = true;
         if(event.event == GuiButtonTypeLeft) {
             scene_manager_previous_scene(app->scene_manager);
-        } else if(event.event == GuiButtonTypeCenter) {
-            // Read first 16 bytes from address 0x00
-            uint32_t address = 0x00;
-            uint8_t data[16] = {0};
-            bool read_ok = false;
-
-            furi_hal_spi_acquire(&furi_hal_spi_bus_handle_external);
-            do {
-                uint8_t cmd = (uint8_t)SPIMemChipCMDReadData;
-                uint8_t addr_bytes[3];
-                addr_bytes[0] = (address >> 16) & 0xFF;
-                addr_bytes[1] = (address >> 8) & 0xFF;
-                addr_bytes[2] = address & 0xFF;
-                furi_hal_gpio_write(&gpio_ext_pa4, false);
-                if(!furi_hal_spi_bus_tx(&furi_hal_spi_bus_handle_external, &cmd, 1, SPI_MEM_SPI_TIMEOUT)) break;
-                if(!furi_hal_spi_bus_tx(&furi_hal_spi_bus_handle_external, addr_bytes, 3, SPI_MEM_SPI_TIMEOUT)) break;
-                if(!furi_hal_spi_bus_rx(&furi_hal_spi_bus_handle_external, data, sizeof(data), SPI_MEM_SPI_TIMEOUT)) break;
-                read_ok = true;
-            } while(0);
-            furi_hal_gpio_write(&gpio_ext_pa4, true);
-            furi_hal_spi_release(&furi_hal_spi_bus_handle_external);
-
-            if(read_ok) {
-                FURI_LOG_I(TAG, "Tama: Read 16 bytes @0x00 OK: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-                    data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-                    data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15]);
-                SPIMemChipStatus status = spi_mem_tools_get_chip_status(app->chip_info);
-                FURI_LOG_I(TAG, "Tama: Chip status after read: %d", status);
-                scene_manager_search_and_switch_to_another_scene(app->scene_manager, SPIMemSceneStart);
-            } else {
-                scene_manager_next_scene(app->scene_manager, SPIMemSceneChipError);
-            }
         } else if(event.event == GuiButtonTypeRight) {
             // 1) Read first sector (4KB) into header
             const uint32_t sector_addr = 0x000000;
             const size_t sector_size = 0x40; // read/write only first 64 bytes to avoid freezes
             uint8_t header[0x40];
             bool read_sector_ok = false;
-
+            spi_mem_protection_unlock(app->chip_info);
             furi_hal_spi_acquire(&furi_hal_spi_bus_handle_external);
             do {
                 uint8_t cmd = (uint8_t)SPIMemChipCMDReadData;
@@ -138,7 +142,7 @@ bool spi_mem_scene_tama_on_event(void* context, SceneManagerEvent event) {
             }
 
             // 2) Set header[0x04..0x10] = 0x00
-            for(size_t i = 0x04; i <= 0x10; i++) header[i] = 0x00;
+            for(size_t i = 0x04; i < 0x10; i++) header[i] = 0x00;
 
             // 3) MD5 over header[0x00..0x3F] (64 bytes)
             MD5Context ctx; md5Init(&ctx); md5Update(&ctx, &header[0x00], 0x40); md5Finalize(&ctx);
@@ -148,9 +152,7 @@ bool spi_mem_scene_tama_on_event(void* context, SceneManagerEvent event) {
                 digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
                 digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]);
 
-            // 5) Zero from 0x50 to end of sector: skipped here (we only process 64 bytes header)
-
-            // 6) Erase first sector and write header back page-wise
+            // 4) Erase first sector and write header back page-wise
             bool erase_ok = false;
 
             furi_hal_spi_acquire(&furi_hal_spi_bus_handle_external);
@@ -212,8 +214,6 @@ bool spi_mem_scene_tama_on_event(void* context, SceneManagerEvent event) {
             }
 
             FURI_LOG_I(TAG, "Tama: Erase verify all_ff=%d", all_ff ? 1 : 0);
-            
-            // If erase not verified, we still proceed to program modified header as per requirement
 
             // Explicit Write Enable again before program
             furi_hal_spi_acquire(&furi_hal_spi_bus_handle_external);
@@ -257,6 +257,29 @@ bool spi_mem_scene_tama_on_event(void* context, SceneManagerEvent event) {
                 furi_delay_ms(1);
             }
 
+            // Zero-fill from 0x50 to 0x1000 using page-sized chunks
+            {
+                const uint32_t start_addr = 0x50;
+                const uint32_t end_addr = 0x1000;
+                uint8_t zero_buf[SPI_MEM_MAX_BLOCK_SIZE] = {0};
+                uint32_t addr = start_addr;
+                while(addr < end_addr) {
+                    size_t space_in_page = page_size - (addr % page_size);
+                    size_t remaining = end_addr - addr;
+                    size_t chunk = remaining < space_in_page ? remaining : space_in_page;
+                    if(!spi_mem_tools_write_bytes(app->chip_info, addr, zero_buf, chunk)) { write_failed = true; break; }
+                    for(uint32_t i = 0; i < 2000; i++) {
+                        if(spi_mem_tools_get_chip_status(app->chip_info) == SPIMemChipStatusIdle) break;
+                        furi_delay_ms(1);
+                    }
+                    addr += chunk;
+                }
+            }
+            if(write_failed) {
+                scene_manager_next_scene(app->scene_manager, SPIMemSceneChipError);
+                return true;
+            }
+
             // 7) Verify digest area: read 0x40..0x4F (16 bytes)
             uint8_t verify_dig[16] = {0};
             bool v_ok = false;
@@ -277,7 +300,16 @@ bool spi_mem_scene_tama_on_event(void* context, SceneManagerEvent event) {
                     verify_dig[0], verify_dig[1], verify_dig[2], verify_dig[3], verify_dig[4], verify_dig[5], verify_dig[6], verify_dig[7],
                     verify_dig[8], verify_dig[9], verify_dig[10], verify_dig[11], verify_dig[12], verify_dig[13], verify_dig[14], verify_dig[15]);
             }
-            scene_manager_search_and_switch_to_another_scene(app->scene_manager, SPIMemSceneStart);
+
+            // Lock the chip
+            if(spi_mem_chip_get_vendor_id(app->chip_info) == 0xC2 && 
+                spi_mem_chip_get_capacity_id(app->chip_info) == 0x14) {
+                success = spi_mem_protection_lock_xc2x14(app->chip_info);
+            } else {
+                success = spi_mem_protection_lock(app->chip_info);
+            }
+
+            scene_manager_next_scene(app->scene_manager, SPIMemSceneSuccess);
         }
     }
     return success;

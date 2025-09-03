@@ -13,3 +13,6 @@
 
 # OS Crap
 .DS_Store
+
+.fap
+.elf

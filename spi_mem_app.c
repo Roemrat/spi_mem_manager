@@ -36,6 +36,7 @@ SPIMemApp* spi_mem_alloc(void) {
     instance->view_detect = spi_mem_view_detect_alloc();
     instance->text_input = text_input_alloc();
     instance->mode = SPIMemModeUnknown;
+    instance->vibro_timer = NULL;
 
     // Migrate data from old sd-card folder
     storage_common_migrate(instance->storage, EXT_PATH("spimem"), STORAGE_APP_DATA_PATH_PREFIX);
@@ -90,6 +91,9 @@ void spi_mem_free(SPIMemApp* instance) {
     view_dispatcher_free(instance->view_dispatcher);
     scene_manager_free(instance->scene_manager);
     spi_mem_worker_free(instance->worker);
+    if(instance->vibro_timer) {
+        furi_timer_free(instance->vibro_timer);
+    }
     free(instance->chip_info);
     found_chips_clear(instance->found_chips);
     furi_record_close(RECORD_STORAGE);

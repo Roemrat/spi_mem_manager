@@ -62,6 +62,7 @@ struct SPIMemApp {
     SPIMemMode mode;
     char text_buffer[SPI_MEM_TEXT_BUFFER_SIZE + 1];
     uint8_t protect_state;
+    FuriTimer* vibro_timer;
 };
 
 typedef enum {
